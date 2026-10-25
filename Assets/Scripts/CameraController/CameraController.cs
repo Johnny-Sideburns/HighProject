@@ -3,9 +3,20 @@ using UnityEngine.InputSystem;
 
 // Based on the tutorial "Building a Camera Controller for a Strategy Game" by Game Dev Guide:
 // https://www.youtube.com/watch?v=rnqF6S7PfFA
-// Reworked to use the new Input System instead of the legacy Input class.
+// Reworked to use the new Input System (rebindable actions) instead of the legacy Input class.
 public class CameraController : MonoBehaviour
 {
+    [Header("Input (assign the actions from the Camera map of InputSystem_Actions)")]
+    [SerializeField] InputActionReference moveAction;
+    [SerializeField] InputActionReference rotateAction;
+    [SerializeField] InputActionReference zoomAction;
+    [SerializeField] InputActionReference scrollZoomAction;
+    [SerializeField] InputActionReference sprintAction;
+    [SerializeField] InputActionReference dragAction;
+    [SerializeField] InputActionReference rotateDragAction;
+    [SerializeField] InputActionReference pointerAction;
+
+    [Header("Movement")]
     public Transform cameraTransform;
     
     public float normalSpeed;
@@ -26,6 +37,28 @@ public class CameraController : MonoBehaviour
     public Vector3 rotateStartPosition;
     public Vector3 rotateCurrentPosition;
     
+    InputActionReference[] AllActions => new[]
+    {
+        moveAction, rotateAction, zoomAction, scrollZoomAction,
+        sprintAction, dragAction, rotateDragAction, pointerAction
+    };
+
+    void OnEnable()
+    {
+        foreach (InputActionReference reference in AllActions)
+        {
+            reference.action.Enable();
+        }
+    }
+
+    void OnDisable()
+    {
+        foreach (InputActionReference reference in AllActions)
+        {
+            reference.action.Disable();
+        }
+    }
+
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
@@ -43,22 +76,21 @@ public class CameraController : MonoBehaviour
 
     void HandleMouseInput()
     {
-        Mouse mouse = Mouse.current;
-        if (mouse == null) return;
-
         // The new Input System reports scroll in platform-dependent units (e.g. 120 per notch on Windows),
         // so only the direction is used to match the old one-step-per-notch behaviour.
-        float scroll = mouse.scroll.ReadValue().y;
+        float scroll = scrollZoomAction.action.ReadValue<float>();
         if (scroll != 0)
         {
             newZoom += Mathf.Sign(scroll) * zoomAmount;
         }
-        
-        if (mouse.leftButton.wasPressedThisFrame)
+
+        Vector2 pointer = pointerAction.action.ReadValue<Vector2>();
+
+        if (dragAction.action.WasPressedThisFrame())
         {
             Plane plane = new Plane(Vector3.up, Vector3.zero);
 
-            Ray ray = Camera.main.ScreenPointToRay(mouse.position.ReadValue());
+            Ray ray = Camera.main.ScreenPointToRay(pointer);
 
             float entry;
             
@@ -68,11 +100,11 @@ public class CameraController : MonoBehaviour
             }
         }
 
-        if (mouse.leftButton.isPressed)
+        if (dragAction.action.IsPressed())
         {
             Plane plane = new Plane(Vector3.up, Vector3.zero);
 
-            Ray ray = Camera.main.ScreenPointToRay(mouse.position.ReadValue());
+            Ray ray = Camera.main.ScreenPointToRay(pointer);
 
             float entry;
             
@@ -84,14 +116,14 @@ public class CameraController : MonoBehaviour
             }
         }
 
-        if (mouse.middleButton.wasPressedThisFrame)
+        if (rotateDragAction.action.WasPressedThisFrame())
         {
-            rotateStartPosition = mouse.position.ReadValue();
+            rotateStartPosition = pointer;
         }
 
-        if (mouse.middleButton.isPressed)
+        if (rotateDragAction.action.IsPressed())
         {
-            rotateCurrentPosition = mouse.position.ReadValue();
+            rotateCurrentPosition = pointer;
             
             Vector3 difference = rotateStartPosition - rotateCurrentPosition;
             
@@ -103,58 +135,14 @@ public class CameraController : MonoBehaviour
     
     void HandleMovementInput()
     {
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard == null) return;
+        movementSpeed = sprintAction.action.IsPressed() ? fastSpeed : normalSpeed;
 
-        if (keyboard.leftShiftKey.isPressed)
-        {
-            movementSpeed = fastSpeed;
-        }
-        else
-        {
-            movementSpeed = normalSpeed;
-        }
-        
-        
-        if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed)
-        {
-            newPosition += transform.forward * movementSpeed;
-        }
+        Vector2 move = moveAction.action.ReadValue<Vector2>();
+        newPosition += (transform.forward * move.y + transform.right * move.x) * movementSpeed;
 
-        if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed)
-        {
-            newPosition -= transform.forward * movementSpeed;
-        }
-        
-        if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
-        {
-            newPosition += transform.right * movementSpeed;
-        }
-        
-        if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
-        {
-            newPosition -= transform.right * movementSpeed;
-        }
+        newRotation *= Quaternion.Euler(Vector3.up * (rotateAction.action.ReadValue<float>() * rotationAmount));
 
-        if (keyboard.qKey.isPressed)
-        {
-            newRotation *= Quaternion.Euler(Vector3.up * rotationAmount);
-        }
-
-        if (keyboard.eKey.isPressed)
-        {
-            newRotation *= Quaternion.Euler(Vector3.up * -rotationAmount);
-        }
-
-        if (keyboard.rKey.isPressed)
-        {
-            newZoom += zoomAmount;
-        }
-
-        if (keyboard.fKey.isPressed)
-        {
-            newZoom -= zoomAmount;
-        }
+        newZoom += zoomAction.action.ReadValue<float>() * zoomAmount;
         
         transform.position = Vector3.Lerp(transform.position, newPosition, movementTime * Time.deltaTime); 
         transform.rotation = Quaternion.Lerp(transform.rotation, newRotation, movementTime * Time.deltaTime);
