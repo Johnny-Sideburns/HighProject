@@ -1,9 +1,11 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
 // Based on the tutorial "Building a Camera Controller for a Strategy Game" by Game Dev Guide:
 // https://www.youtube.com/watch?v=rnqF6S7PfFA
 // Reworked to use the new Input System (rebindable actions) instead of the legacy Input class.
+// Better naming conventions, encapsulation and frame-rate independent movement were used than in the tutorial.
 public class CameraController : MonoBehaviour
 {
     [Header("Input (assign the actions from the Camera map of InputSystem_Actions)")]
@@ -16,36 +18,56 @@ public class CameraController : MonoBehaviour
     [SerializeField] InputActionReference rotateDragAction;
     [SerializeField] InputActionReference pointerAction;
 
-    [Header("Movement")]
-    public Transform cameraTransform;
-    
-    public float normalSpeed;
-    public float fastSpeed;
-    
-    public float movementSpeed;
-    public float movementTime;
+    [Header("References")]
+    [SerializeField] Transform cameraTransform;
 
-    public float rotationAmount;
-    public Vector3 zoomAmount;
-    
-    public Vector3 newPosition;
-    public Quaternion newRotation;
-    public Vector3 newZoom;
-    
-    public Vector3 dragStartPosition;
-    public Vector3 dragCurrentPosition;
-    public Vector3 rotateStartPosition;
-    public Vector3 rotateCurrentPosition;
-    
-    InputActionReference[] AllActions => new[]
+    [Header("Panning (units per second)")]
+    [SerializeField, Min(0f)] float panSpeed = 30f;
+    [SerializeField, Min(0f)] float fastPanSpeed = 180f;
+
+    [Header("Rotation (degrees)")]
+    [Tooltip("Degrees per second while the rotate keys are held.")]
+    [SerializeField, Min(0f)] float keyRotateSpeed = 60f;
+    [Tooltip("Degrees per screen pixel while rotating with the mouse.")]
+    [SerializeField, Min(0f)] float mouseRotateSensitivity = 0.2f;
+
+    [Header("Zoom (offset applied to the camera's local position)")]
+    [Tooltip("Applied once per mouse wheel notch.")]
+    [FormerlySerializedAs("zoomAmount")]
+    [SerializeField] Vector3 scrollZoomStep = new Vector3(0f, -10f, 10f);
+    [Tooltip("Applied per second while the zoom keys are held.")]
+    [SerializeField] Vector3 keyZoomSpeed = new Vector3(0f, -20f, 20f);
+
+    [Header("Smoothing")]
+    [Tooltip("Higher values make the camera catch up with its target faster.")]
+    [SerializeField, Min(0f)] float movementTime = 5f;
+
+    static readonly Plane GroundPlane = new Plane(Vector3.up, Vector3.zero);
+
+    Camera mainCamera;
+    InputActionReference[] allActions;
+
+    Vector3 targetPosition;
+    Quaternion targetRotation;
+    Vector3 targetZoom;
+
+    Vector3 dragStartPoint;
+    Vector2 lastRotatePointer;
+
+    void Awake()
     {
-        moveAction, rotateAction, zoomAction, scrollZoomAction,
-        sprintAction, dragAction, rotateDragAction, pointerAction
-    };
+        mainCamera = Camera.main;
+
+        allActions = new[]
+        {
+            moveAction, rotateAction, zoomAction, scrollZoomAction,
+            sprintAction, dragAction, rotateDragAction, pointerAction
+        };
+    }
 
     void OnEnable()
     {
-        foreach (InputActionReference reference in AllActions)
+        foreach (InputActionReference reference in allActions)
         {
             reference.action.Enable();
         }
@@ -53,7 +75,7 @@ public class CameraController : MonoBehaviour
 
     void OnDisable()
     {
-        foreach (InputActionReference reference in AllActions)
+        foreach (InputActionReference reference in allActions)
         {
             reference.action.Disable();
         }
@@ -62,90 +84,88 @@ public class CameraController : MonoBehaviour
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
-        newPosition = transform.position;
-        newRotation = transform.rotation;
-        newZoom = cameraTransform.localPosition;
+        targetPosition = transform.position;
+        targetRotation = transform.rotation;
+        targetZoom = cameraTransform.localPosition;
     }
 
     // Update is called once per frame
     void Update()
     {
-        HandleMovementInput();
-        HandleMouseInput();
+        float deltaTime = Time.deltaTime;
+
+        ReadKeyboardInput(deltaTime);
+        ReadMouseInput();
+        ApplySmoothing(deltaTime);
     }
 
-    void HandleMouseInput()
+    void ReadMouseInput()
     {
-        // The new Input System reports scroll in platform-dependent units (e.g. 120 per notch on Windows),
-        // so only the direction is used to match the old one-step-per-notch behaviour.
+        // Scroll units are platform dependent (e.g. 120 per notch on Windows), so only the direction is used.
         float scroll = scrollZoomAction.action.ReadValue<float>();
-        if (scroll != 0)
+        if (scroll != 0f)
         {
-            newZoom += Mathf.Sign(scroll) * zoomAmount;
+            targetZoom += scrollZoomStep * Mathf.Sign(scroll);
         }
 
         Vector2 pointer = pointerAction.action.ReadValue<Vector2>();
 
         if (dragAction.action.WasPressedThisFrame())
         {
-            Plane plane = new Plane(Vector3.up, Vector3.zero);
-
-            Ray ray = Camera.main.ScreenPointToRay(pointer);
-
-            float entry;
-            
-            if (plane.Raycast(ray, out entry))
-            {
-                dragStartPosition = ray.GetPoint(entry);
-            }
+            TryGetGroundPoint(pointer, out dragStartPoint);
         }
-
-        if (dragAction.action.IsPressed())
+        else if (dragAction.action.IsPressed() && TryGetGroundPoint(pointer, out Vector3 dragCurrentPoint))
         {
-            Plane plane = new Plane(Vector3.up, Vector3.zero);
-
-            Ray ray = Camera.main.ScreenPointToRay(pointer);
-
-            float entry;
-            
-            if (plane.Raycast(ray, out entry))
-            {
-                dragCurrentPosition = ray.GetPoint(entry);
-                
-                newPosition = transform.position + dragStartPosition - dragCurrentPosition;
-            }
+            targetPosition = transform.position + dragStartPoint - dragCurrentPoint;
         }
 
         if (rotateDragAction.action.WasPressedThisFrame())
         {
-            rotateStartPosition = pointer;
+            lastRotatePointer = pointer;
         }
-
-        if (rotateDragAction.action.IsPressed())
+        else if (rotateDragAction.action.IsPressed())
         {
-            rotateCurrentPosition = pointer;
-            
-            Vector3 difference = rotateStartPosition - rotateCurrentPosition;
-            
-            rotateStartPosition = rotateCurrentPosition;
-            
-            newRotation *= Quaternion.Euler(Vector3.up * (-difference.x/5f)); 
+            float deltaX = pointer.x - lastRotatePointer.x;
+            lastRotatePointer = pointer;
+
+            targetRotation *= Quaternion.Euler(0f, deltaX * mouseRotateSensitivity, 0f);
         }
     }
     
-    void HandleMovementInput()
+    void ReadKeyboardInput(float deltaTime)
     {
-        movementSpeed = sprintAction.action.IsPressed() ? fastSpeed : normalSpeed;
+        float speed = sprintAction.action.IsPressed() ? fastPanSpeed : panSpeed;
 
         Vector2 move = moveAction.action.ReadValue<Vector2>();
-        newPosition += (transform.forward * move.y + transform.right * move.x) * movementSpeed;
+        targetPosition += (transform.forward * move.y + transform.right * move.x) * (speed * deltaTime);
 
-        newRotation *= Quaternion.Euler(Vector3.up * (rotateAction.action.ReadValue<float>() * rotationAmount));
+        float rotate = rotateAction.action.ReadValue<float>();
+        targetRotation *= Quaternion.Euler(0f, rotate * keyRotateSpeed * deltaTime, 0f);
 
-        newZoom += zoomAction.action.ReadValue<float>() * zoomAmount;
-        
-        transform.position = Vector3.Lerp(transform.position, newPosition, movementTime * Time.deltaTime); 
-        transform.rotation = Quaternion.Lerp(transform.rotation, newRotation, movementTime * Time.deltaTime);
-        cameraTransform.localPosition = Vector3.Lerp(cameraTransform.localPosition, newZoom, movementTime * Time.deltaTime);
+        targetZoom += keyZoomSpeed * (zoomAction.action.ReadValue<float>() * deltaTime);
+    }
+
+    bool TryGetGroundPoint(Vector2 screenPoint, out Vector3 point)
+    {
+        Ray ray = mainCamera.ScreenPointToRay(screenPoint);
+
+        if (GroundPlane.Raycast(ray, out float distance))
+        {
+            point = ray.GetPoint(distance);
+            return true;
+        }
+
+        point = default;
+        return false;
+    }
+
+    void ApplySmoothing(float deltaTime)
+    {
+        // Frame-rate independent equivalent of Lerp(current, target, rate * deltaTime).
+        float t = 1f - Mathf.Exp(-movementTime * deltaTime);
+
+        transform.position = Vector3.Lerp(transform.position, targetPosition, t);
+        transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, t);
+        cameraTransform.localPosition = Vector3.Lerp(cameraTransform.localPosition, targetZoom, t);
     }
 }
