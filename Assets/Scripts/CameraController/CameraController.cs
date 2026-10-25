@@ -1,7 +1,9 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 // Based on the tutorial "Building a Camera Controller for a Strategy Game" by Game Dev Guide:
 // https://www.youtube.com/watch?v=rnqF6S7PfFA
+// Reworked to use the new Input System instead of the legacy Input class.
 public class CameraController : MonoBehaviour
 {
     public Transform cameraTransform;
@@ -41,16 +43,22 @@ public class CameraController : MonoBehaviour
 
     void HandleMouseInput()
     {
-        if (Input.mouseScrollDelta.y != 0)
+        Mouse mouse = Mouse.current;
+        if (mouse == null) return;
+
+        // The new Input System reports scroll in platform-dependent units (e.g. 120 per notch on Windows),
+        // so only the direction is used to match the old one-step-per-notch behaviour.
+        float scroll = mouse.scroll.ReadValue().y;
+        if (scroll != 0)
         {
-            newZoom += Input.mouseScrollDelta.y * zoomAmount; 
+            newZoom += Mathf.Sign(scroll) * zoomAmount;
         }
         
-        if (Input.GetMouseButtonDown(0))
+        if (mouse.leftButton.wasPressedThisFrame)
         {
             Plane plane = new Plane(Vector3.up, Vector3.zero);
 
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            Ray ray = Camera.main.ScreenPointToRay(mouse.position.ReadValue());
 
             float entry;
             
@@ -60,11 +68,11 @@ public class CameraController : MonoBehaviour
             }
         }
 
-        if (Input.GetMouseButton(0))
+        if (mouse.leftButton.isPressed)
         {
             Plane plane = new Plane(Vector3.up, Vector3.zero);
 
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            Ray ray = Camera.main.ScreenPointToRay(mouse.position.ReadValue());
 
             float entry;
             
@@ -76,14 +84,14 @@ public class CameraController : MonoBehaviour
             }
         }
 
-        if (Input.GetMouseButtonDown(2))
+        if (mouse.middleButton.wasPressedThisFrame)
         {
-            rotateStartPosition = Input.mousePosition;
+            rotateStartPosition = mouse.position.ReadValue();
         }
 
-        if (Input.GetMouseButton(2))
+        if (mouse.middleButton.isPressed)
         {
-            rotateCurrentPosition = Input.mousePosition;
+            rotateCurrentPosition = mouse.position.ReadValue();
             
             Vector3 difference = rotateStartPosition - rotateCurrentPosition;
             
@@ -95,7 +103,10 @@ public class CameraController : MonoBehaviour
     
     void HandleMovementInput()
     {
-        if (Input.GetKey(KeyCode.LeftShift))
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null) return;
+
+        if (keyboard.leftShiftKey.isPressed)
         {
             movementSpeed = fastSpeed;
         }
@@ -105,42 +116,42 @@ public class CameraController : MonoBehaviour
         }
         
         
-        if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+        if (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed)
         {
             newPosition += transform.forward * movementSpeed;
         }
 
-        if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow))
+        if (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed)
         {
             newPosition -= transform.forward * movementSpeed;
         }
         
-        if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+        if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed)
         {
             newPosition += transform.right * movementSpeed;
         }
         
-        if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+        if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed)
         {
             newPosition -= transform.right * movementSpeed;
         }
 
-        if (Input.GetKey(KeyCode.Q))
+        if (keyboard.qKey.isPressed)
         {
             newRotation *= Quaternion.Euler(Vector3.up * rotationAmount);
         }
 
-        if (Input.GetKey(KeyCode.E))
+        if (keyboard.eKey.isPressed)
         {
             newRotation *= Quaternion.Euler(Vector3.up * -rotationAmount);
         }
 
-        if (Input.GetKey(KeyCode.R))
+        if (keyboard.rKey.isPressed)
         {
             newZoom += zoomAmount;
         }
 
-        if (Input.GetKey(KeyCode.F))
+        if (keyboard.fKey.isPressed)
         {
             newZoom -= zoomAmount;
         }
