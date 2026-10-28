@@ -64,7 +64,7 @@ namespace HighProject.MapCore
         static OsmDocument ReadDocument(XmlReader reader, Stream positionSource, long length, IProgress<float> progress, CancellationToken cancellationToken)
         {
             var document = new OsmDocument();
-            var strings = new StringPool();
+            var context = new ReadContext(document);
 
             reader.MoveToContent();
             if (reader.NodeType != XmlNodeType.Element || reader.Name != "osm")
@@ -94,13 +94,13 @@ namespace HighProject.MapCore
                         ReadBounds(reader, document);
                         break;
                     case "node":
-                        ReadNode(reader, document, strings);
+                        ReadNode(reader, context);
                         break;
                     case "way":
-                        ReadWay(reader, document, strings);
+                        ReadWay(reader, context);
                         break;
                     case "relation":
-                        ReadRelation(reader, document, strings);
+                        ReadRelation(reader, context);
                         break;
                     default:
                         reader.Skip();
@@ -133,7 +133,7 @@ namespace HighProject.MapCore
             reader.Skip();
         }
 
-        static void ReadNode(XmlReader reader, OsmDocument document, StringPool strings)
+        static void ReadNode(XmlReader reader, ReadContext context)
         {
             long id = ParseLong(reader.GetAttribute("id"));
             double lat = ParseDouble(reader.GetAttribute("lat"));
@@ -151,7 +151,7 @@ namespace HighProject.MapCore
                 {
                     if (reader.NodeType == XmlNodeType.Element && reader.Name == "tag")
                     {
-                        AddTag(ref tags, reader, strings);
+                        AddTag(ref tags, reader, context.Strings);
                     }
 
                     reader.Skip();
@@ -160,14 +160,14 @@ namespace HighProject.MapCore
                 reader.ReadEndElement();
             }
 
-            document.Nodes[id] = new OsmNode(lat, lon);
-            if (tags != null)
+            context.Document.Nodes[id] = new OsmNode(lat, lon);
+            if (tags != null && context.TaggedNodeIds.Add(id))
             {
-                document.TaggedNodes.Add(new OsmTaggedNode(id, lat, lon, tags));
+                context.Document.TaggedNodes.Add(new OsmTaggedNode(id, lat, lon, tags));
             }
         }
 
-        static void ReadWay(XmlReader reader, OsmDocument document, StringPool strings)
+        static void ReadWay(XmlReader reader, ReadContext context)
         {
             long id = ParseLong(reader.GetAttribute("id"));
             var nodeIds = new List<long>();
@@ -190,7 +190,7 @@ namespace HighProject.MapCore
                         }
                         else if (reader.Name == "tag")
                         {
-                            AddTag(ref tags, reader, strings);
+                            AddTag(ref tags, reader, context.Strings);
                         }
                     }
 
@@ -200,10 +200,11 @@ namespace HighProject.MapCore
                 reader.ReadEndElement();
             }
 
-            document.Ways.Add(new OsmWay(id, nodeIds.ToArray(), (IReadOnlyDictionary<string, string>)tags ?? OsmTags.Empty));
+            var way = new OsmWay(id, nodeIds.ToArray(), (IReadOnlyDictionary<string, string>)tags ?? OsmTags.Empty);
+            AddOrMerge(context.Document.Ways, context.WayIndex, id, way, way.Tags.Count > 0);
         }
 
-        static void ReadRelation(XmlReader reader, OsmDocument document, StringPool strings)
+        static void ReadRelation(XmlReader reader, ReadContext context)
         {
             long id = ParseLong(reader.GetAttribute("id"));
             var members = new List<OsmMember>();
@@ -225,11 +226,11 @@ namespace HighProject.MapCore
                             members.Add(new OsmMember(
                                 ParseMemberType(reader.GetAttribute("type")),
                                 ParseLong(reader.GetAttribute("ref")),
-                                strings.Intern(reader.GetAttribute("role") ?? string.Empty)));
+                                context.Strings.Intern(reader.GetAttribute("role") ?? string.Empty)));
                         }
                         else if (reader.Name == "tag")
                         {
-                            AddTag(ref tags, reader, strings);
+                            AddTag(ref tags, reader, context.Strings);
                         }
                     }
 
@@ -239,7 +240,23 @@ namespace HighProject.MapCore
                 reader.ReadEndElement();
             }
 
-            document.Relations.Add(new OsmRelation(id, members.ToArray(), (IReadOnlyDictionary<string, string>)tags ?? OsmTags.Empty));
+            var relation = new OsmRelation(id, members.ToArray(), (IReadOnlyDictionary<string, string>)tags ?? OsmTags.Empty);
+            AddOrMerge(context.Document.Relations, context.RelationIndex, id, relation, relation.Tags.Count > 0);
+        }
+
+        // Overpass queries ending in "out body; >; out skel qt;" can list an element twice: once complete and once
+        // as an untagged skeleton copy. Keep one element per id and prefer the one that carries tags.
+        static void AddOrMerge<T>(List<T> list, Dictionary<long, int> indexById, long id, T element, bool hasTags)
+        {
+            if (!indexById.TryGetValue(id, out int existing))
+            {
+                indexById[id] = list.Count;
+                list.Add(element);
+            }
+            else if (hasTags)
+            {
+                list[existing] = element;
+            }
         }
 
         static void AddTag(ref Dictionary<string, string> tags, XmlReader reader, StringPool strings)
@@ -287,6 +304,20 @@ namespace HighProject.MapCore
             }
 
             return result;
+        }
+
+        sealed class ReadContext
+        {
+            public OsmDocument Document { get; }
+            public StringPool Strings { get; } = new StringPool();
+            public Dictionary<long, int> WayIndex { get; } = new Dictionary<long, int>();
+            public Dictionary<long, int> RelationIndex { get; } = new Dictionary<long, int>();
+            public HashSet<long> TaggedNodeIds { get; } = new HashSet<long>();
+
+            public ReadContext(OsmDocument document)
+            {
+                Document = document;
+            }
         }
 
         // Tag keys and values repeat thousands of times ("yes", "footway", ...); share one instance of each.
