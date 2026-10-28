@@ -117,6 +117,24 @@ namespace HighProject.MapCore
         public List<OsmWay> Ways { get; } = new List<OsmWay>();
         public List<OsmRelation> Relations { get; } = new List<OsmRelation>();
 
+        Dictionary<long, OsmWay> waysById;
+
+        // Looks a way up by id, or null if the file does not contain it. The index is built on first use,
+        // so do not add ways afterwards. Not thread safe on the first call.
+        public OsmWay GetWay(long id)
+        {
+            if (waysById == null)
+            {
+                waysById = new Dictionary<long, OsmWay>(Ways.Count);
+                foreach (OsmWay way in Ways)
+                {
+                    waysById[way.Id] = way;
+                }
+            }
+
+            return waysById.TryGetValue(id, out OsmWay found) ? found : null;
+        }
+
         // The <bounds> element if the file has one, otherwise the extent of all nodes.
         public OsmBounds GetBoundsOrComputed()
         {
