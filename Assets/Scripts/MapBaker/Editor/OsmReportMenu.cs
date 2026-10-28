@@ -6,7 +6,7 @@ using Debug = UnityEngine.Debug;
 
 namespace HighProject.MapBaker
 {
-    // Milestone 1a: prints the statistics of an OSM file to the Console.
+    // Milestones 1a-1b: prints the statistics, building footprints and entrances of an OSM file to the Console.
     // Select a .osm file in the Project window first; without a selection the Norreport extract is used.
     public static class OsmReportMenu
     {
