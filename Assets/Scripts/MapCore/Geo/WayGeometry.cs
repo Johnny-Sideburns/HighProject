@@ -69,5 +69,30 @@ namespace HighProject.MapCore
             ring = candidate;
             return RingProblem.None;
         }
+
+        // Projects the nodes of an open or closed way to a polyline. Nodes missing from the file are skipped and
+        // consecutive duplicate points dropped. Returns false when fewer than two points remain.
+        public static bool TryGetPolyline(IReadOnlyList<long> nodeIds, OsmDocument document, LocalProjection projection, out Point2d[] polyline)
+        {
+            var points = new List<Point2d>(nodeIds.Count);
+            foreach (long id in nodeIds)
+            {
+                if (!document.Nodes.TryGetValue(id, out OsmNode node))
+                {
+                    continue;
+                }
+
+                Point2d point = projection.ToLocal(node.Lat, node.Lon);
+                if (points.Count > 0 && points[points.Count - 1].X == point.X && points[points.Count - 1].Z == point.Z)
+                {
+                    continue;
+                }
+
+                points.Add(point);
+            }
+
+            polyline = points.Count >= 2 ? points.ToArray() : null;
+            return polyline != null;
+        }
     }
 }
