@@ -139,6 +139,12 @@ namespace HighProject.MapCore
             Flags[index] &= (byte)~(byte)flag;
         }
 
+        // True if at least one of the given flags is set.
+        public bool HasAnyFlag(int index, CellFlags flags)
+        {
+            return (Flags[index] & (byte)flags) != 0;
+        }
+
         public bool IsBlocked(int index)
         {
             return (Flags[index] & (byte)CellFlags.Blocked) != 0;
