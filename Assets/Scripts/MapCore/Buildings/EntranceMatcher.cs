@@ -147,26 +147,11 @@ namespace HighProject.MapCore
             int previous = ring.Count - 1;
             for (int i = 0; i < ring.Count; i++)
             {
-                best = Math.Min(best, DistanceToSegment(point, ring.Points[previous], ring.Points[i]));
+                best = Math.Min(best, SegmentMath.DistanceToSegment(point, ring.Points[previous], ring.Points[i]));
                 previous = i;
             }
 
             return best;
-        }
-
-        static double DistanceToSegment(Point2d p, Point2d a, Point2d b)
-        {
-            double dx = b.X - a.X;
-            double dz = b.Z - a.Z;
-            double lengthSquared = dx * dx + dz * dz;
-            double t = lengthSquared > 0.0 ? ((p.X - a.X) * dx + (p.Z - a.Z) * dz) / lengthSquared : 0.0;
-            t = Math.Max(0.0, Math.Min(1.0, t));
-
-            double nearestX = a.X + t * dx;
-            double nearestZ = a.Z + t * dz;
-            double ex = p.X - nearestX;
-            double ez = p.Z - nearestZ;
-            return Math.Sqrt(ex * ex + ez * ez);
         }
     }
 }
