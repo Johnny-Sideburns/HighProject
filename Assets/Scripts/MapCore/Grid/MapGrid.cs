@@ -4,12 +4,13 @@ namespace HighProject.MapCore
 {
     // A regular grid over the map in local metres. Cell (x, z) covers
     // [OriginX + x * CellSize, OriginX + (x + 1) * CellSize) in x and likewise in z.
-    // The three layers are separate arrays (struct of arrays): Flags and Cost are read by the movement code
-    // every tick, BuildingId rarely.
+    // The layers are separate arrays (struct of arrays): Flags and Cost are read by the movement code
+    // every tick, Surface and BuildingId rarely.
     public sealed class MapGrid
     {
         public const byte DefaultOpenGroundCost = 3;
         public const int NoBuilding = -1;
+        public const byte BlockedCost = 255;
 
         public double CellSize { get; }
         public double OriginX { get; }
@@ -18,6 +19,7 @@ namespace HighProject.MapCore
         public int Height { get; }
 
         public byte[] Flags { get; }
+        public byte[] Surface { get; }
         public byte[] Cost { get; }
         public int[] BuildingId { get; }
 
@@ -42,6 +44,7 @@ namespace HighProject.MapCore
             CellSize = cellSize;
 
             Flags = new byte[width * height];
+            Surface = new byte[width * height];
             Cost = new byte[width * height];
             BuildingId = new int[width * height];
 
@@ -100,6 +103,25 @@ namespace HighProject.MapCore
         public double CellCenterZ(int z)
         {
             return OriginZ + (z + 0.5) * CellSize;
+        }
+
+        public SurfaceKind SurfaceAt(int index)
+        {
+            return (SurfaceKind)Surface[index];
+        }
+
+        public void SetSurface(int index, SurfaceKind surface)
+        {
+            Surface[index] = (byte)surface;
+        }
+
+        // Recomputes Cost from Surface for every cell. Blocked cells get cost 255 ("never enter").
+        public void ApplySurfaceCosts(byte[] costBySurface)
+        {
+            for (int i = 0; i < Cost.Length; i++)
+            {
+                Cost[i] = (Flags[i] & (byte)CellFlags.Blocked) != 0 ? BlockedCost : costBySurface[Surface[i]];
+            }
         }
 
         public bool HasFlag(int index, CellFlags flag)
