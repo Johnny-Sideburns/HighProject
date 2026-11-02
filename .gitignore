@@ -107,3 +107,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Baked map data: re-baked on every machine from Assets/MapData/OSM with the Map Bake window
+/[Aa]ssets/MapData/Baked/
+/[Aa]ssets/MapData/Baked.meta
