@@ -69,6 +69,48 @@ namespace HighProject.MapCore
             }
         }
 
+        // Colour of the ground itself, for the game map: buildings are drawn as plain ground (the 3D building covers
+        // them) and cut-off areas look like any other ground, unlike the preview picture which highlights both.
+        public static (byte R, byte G, byte B) GroundColorOf(MapGrid grid, int index)
+        {
+            byte flags = grid.Flags[index];
+
+            if ((flags & (byte)CellFlags.Water) != 0) return WaterColor;
+            if ((flags & (byte)CellFlags.Rail) != 0) return RailColor;
+            if ((flags & (byte)CellFlags.Barrier) != 0) return BarrierColor;
+
+            switch ((SurfaceKind)grid.Surface[index])
+            {
+                case SurfaceKind.Grass: return GrassColor;
+                case SurfaceKind.Woodland: return WoodlandColor;
+                case SurfaceKind.Plaza: return PlazaColor;
+                case SurfaceKind.Footpath: return FootpathColor;
+                case SurfaceKind.Steps: return StepsColor;
+                case SurfaceKind.MinorRoad: return MinorRoadColor;
+                case SurfaceKind.MajorRoad: return MajorRoadColor;
+                default: return GroundColor;
+            }
+        }
+
+        // Ground texture pixels (RGB24) for Unity, southern row first, see GroundColorOf.
+        public static byte[] RenderGroundRgb(MapGrid grid)
+        {
+            var pixels = new byte[grid.CellCount * 3];
+            int offset = 0;
+            for (int z = 0; z < grid.Height; z++)
+            {
+                for (int x = 0; x < grid.Width; x++)
+                {
+                    (byte r, byte g, byte b) = GroundColorOf(grid, grid.Index(x, z));
+                    pixels[offset++] = r;
+                    pixels[offset++] = g;
+                    pixels[offset++] = b;
+                }
+            }
+
+            return pixels;
+        }
+
         // RGB24 pixels, three bytes per cell, row by row. With topRowFirst the northern row (largest z) comes first,
         // which is what image files expect; Unity textures expect the southern row first, so pass false there.
         public static byte[] RenderRgb(MapGrid grid, bool topRowFirst)
