@@ -1,4 +1,5 @@
 using System.IO;
+using HighProject.Map;
 using HighProject.MapCore;
 using UnityEditor;
 using UnityEngine;
@@ -109,6 +110,11 @@ namespace HighProject.MapBaker
 
                 using (new EditorGUI.DisabledScope(job != null || result == null))
                 {
+                    if (GUILayout.Button("Save Map Asset"))
+                    {
+                        SaveMapAsset();
+                    }
+
                     if (GUILayout.Button("Export PNG"))
                     {
                         string path = GridPreviewExporter.WritePng(resultOsmPath, result.Grid);
@@ -171,6 +177,17 @@ namespace HighProject.MapBaker
 
                 GUILayout.FlexibleSpace();
             }
+        }
+
+        // Writes the last bake as a MapAsset (grid, buildings, entrances, building meshes, ground texture) for the SubScene.
+        // The asset is only highlighted in the Project window, not selected: selecting it would open it in the Inspector.
+        void SaveMapAsset()
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            MapAsset asset = MapAssetWriter.Write(result, resultOsmPath, settings != null ? settings.BuildingMeshTileSize : 250f);
+            status = $"Saved {AssetDatabase.GetAssetPath(asset)} in {timer.ElapsedMilliseconds} ms ({asset.PackedLayerBytes / 1024} KB of grid data, " +
+                     $"{asset.BuildingMeshes.Length} building meshes, checksum {asset.Checksum}). Assign it to a MapAuthoring in your SubScene, or use Tools > Map > Add Map To Scene.";
+            EditorGUIUtility.PingObject(asset);
         }
 
         void StartBake()

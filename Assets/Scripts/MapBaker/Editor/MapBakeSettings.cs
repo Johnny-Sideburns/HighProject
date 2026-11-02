@@ -31,6 +31,9 @@ namespace HighProject.MapBaker
         [SerializeField, Min(1f)] float defaultBuildingHeight = 15f;
         [SerializeField, Min(1f)] float metersPerLevel = 3f;
 
+        [Tooltip("Buildings are merged into one mesh per square tile of this size in metres (fewer draw calls, still culled by distance).")]
+        [SerializeField, Min(25f)] float buildingMeshTileSize = 250f;
+
         [Header("Barriers")]
         [Tooltip("barrier=* values that block movement. Remove an entry to make that kind of barrier passable.")]
         [SerializeField] List<string> hardBarrierTypes = new List<string> { "wall", "retaining_wall", "fence", "hedge", "guard_rail", "city_wall" };
@@ -48,6 +51,7 @@ namespace HighProject.MapBaker
         [SerializeField] SurfaceCost[] surfaceCosts = new SurfaceCost[0];
 
         public DefaultAsset OsmFile => osmFile;
+        public float BuildingMeshTileSize => buildingMeshTileSize;
 
         // Project-relative path of the .osm file, or an empty string if none is assigned.
         public string OsmPath => osmFile != null ? AssetDatabase.GetAssetPath(osmFile) : string.Empty;

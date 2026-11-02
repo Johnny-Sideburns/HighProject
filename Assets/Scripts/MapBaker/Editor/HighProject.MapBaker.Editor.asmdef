@@ -2,7 +2,8 @@
     "name": "HighProject.MapBaker.Editor",
     "rootNamespace": "HighProject.MapBaker",
     "references": [
-        "HighProject.MapCore"
+        "HighProject.MapCore",
+        "HighProject.Map"
     ],
     "includePlatforms": [
         "Editor"
