@@ -150,6 +150,41 @@ namespace HighProject.MapCore
             return (Flags[index] & (byte)CellFlags.Blocked) != 0;
         }
 
+        // 64-bit FNV-1a over the grid size and all layers. Two grids with the same content have the same checksum,
+        // which makes it easy to see that two bakes (or a threaded and a single-threaded bake) agree.
+        public ulong ComputeChecksum()
+        {
+            const ulong offset = 14695981039346656037UL;
+            const ulong prime = 1099511628211UL;
+            ulong hash = offset;
+
+            hash = Mix(hash, (ulong)Width, prime);
+            hash = Mix(hash, (ulong)Height, prime);
+            hash = Mix(hash, (ulong)BitConverter.DoubleToInt64Bits(CellSize), prime);
+            hash = Mix(hash, (ulong)BitConverter.DoubleToInt64Bits(OriginX), prime);
+            hash = Mix(hash, (ulong)BitConverter.DoubleToInt64Bits(OriginZ), prime);
+
+            for (int i = 0; i < Flags.Length; i++)
+            {
+                hash = (hash ^ Flags[i]) * prime;
+                hash = (hash ^ Surface[i]) * prime;
+                hash = (hash ^ Cost[i]) * prime;
+                hash = Mix(hash, (ulong)(uint)BuildingId[i], prime);
+            }
+
+            return hash;
+        }
+
+        static ulong Mix(ulong hash, ulong value, ulong prime)
+        {
+            for (int shift = 0; shift < 64; shift += 8)
+            {
+                hash = (hash ^ ((value >> shift) & 0xFF)) * prime;
+            }
+
+            return hash;
+        }
+
         public int CountFlag(CellFlags flag)
         {
             int count = 0;
