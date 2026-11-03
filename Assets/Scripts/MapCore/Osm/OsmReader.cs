@@ -119,6 +119,7 @@ namespace HighProject.MapCore
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+            document.PrepareIndexes();
             progress?.Report(1f);
             return document;
         }

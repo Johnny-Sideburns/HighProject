@@ -117,22 +117,45 @@ namespace HighProject.MapCore
         public List<OsmWay> Ways { get; } = new List<OsmWay>();
         public List<OsmRelation> Relations { get; } = new List<OsmRelation>();
 
-        Dictionary<long, OsmWay> waysById;
+        readonly object wayIndexLock = new object();
+        volatile Dictionary<long, OsmWay> waysById;
 
-        // Looks a way up by id, or null if the file does not contain it. The index is built on first use,
-        // so do not add ways afterwards. Not thread safe on the first call.
+        // Looks a way up by id, or null if the file does not contain it. Safe to call from several threads at once.
+        // The index is built on first use (the reader builds it right away), so do not add ways afterwards.
         public OsmWay GetWay(long id)
+        {
+            Dictionary<long, OsmWay> index = waysById ?? BuildWayIndex();
+            return index.TryGetValue(id, out OsmWay found) ? found : null;
+        }
+
+        // Builds the way index now. The reader calls this, so a freshly loaded document is ready for parallel use.
+        public void PrepareIndexes()
         {
             if (waysById == null)
             {
-                waysById = new Dictionary<long, OsmWay>(Ways.Count);
-                foreach (OsmWay way in Ways)
-                {
-                    waysById[way.Id] = way;
-                }
+                BuildWayIndex();
             }
+        }
 
-            return waysById.TryGetValue(id, out OsmWay found) ? found : null;
+        // The index is filled completely before it becomes visible to other threads; publishing a half-filled
+        // dictionary lets a second thread read it while it is still being built and silently miss ways.
+        Dictionary<long, OsmWay> BuildWayIndex()
+        {
+            lock (wayIndexLock)
+            {
+                if (waysById == null)
+                {
+                    var built = new Dictionary<long, OsmWay>(Ways.Count);
+                    foreach (OsmWay way in Ways)
+                    {
+                        built[way.Id] = way;
+                    }
+
+                    waysById = built;
+                }
+
+                return waysById;
+            }
         }
 
         // The <bounds> element if the file has one, otherwise the extent of all nodes.
