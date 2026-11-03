@@ -1,4 +1,8 @@
+using System;
 using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using HighProject.Map;
 using HighProject.MapCore;
 using UnityEditor;
@@ -18,6 +22,7 @@ namespace HighProject.MapBaker
 
         GridBakeJob job;
         int progressId = -1;
+        Task<DeterminismResult> determinismCheck;
 
         GridBuildResult result;
         string resultOsmPath;
@@ -59,6 +64,11 @@ namespace HighProject.MapBaker
 
             if (result != null)
             {
+                foreach (ValidationMessage message in result.Validation)
+                {
+                    EditorGUILayout.HelpBox(message.Text, ToMessageType(message.Severity));
+                }
+
                 showReport = EditorGUILayout.Foldout(showReport, "Report", true);
                 if (showReport)
                 {
@@ -70,6 +80,16 @@ namespace HighProject.MapBaker
 
             DrawPreview();
             DrawLegend();
+        }
+
+        static MessageType ToMessageType(ValidationSeverity severity)
+        {
+            switch (severity)
+            {
+                case ValidationSeverity.Error: return MessageType.Error;
+                case ValidationSeverity.Warning: return MessageType.Warning;
+                default: return MessageType.Info;
+            }
         }
 
         void DrawSettingsRow()
@@ -105,6 +125,14 @@ namespace HighProject.MapBaker
                     if (GUILayout.Button("Cancel"))
                     {
                         job.Cancel();
+                    }
+                }
+
+                using (new EditorGUI.DisabledScope(job != null || settings == null || determinismCheck != null))
+                {
+                    if (GUILayout.Button("Check Determinism"))
+                    {
+                        StartDeterminismCheck();
                     }
                 }
 
@@ -161,6 +189,16 @@ namespace HighProject.MapBaker
                 Repaint();
             }
 
+            // A click reports the map position of the spot, to type into an override point.
+            if (current.type == EventType.MouseDown && current.button == 0 && drawRect.Contains(current.mousePosition))
+            {
+                MapGrid grid = result.Grid;
+                double worldX = grid.OriginX + (current.mousePosition.x - drawRect.x) / drawRect.width * grid.Width * grid.CellSize;
+                double worldZ = grid.OriginZ + (1f - (current.mousePosition.y - drawRect.y) / drawRect.height) * grid.Height * grid.CellSize;
+                EditorGUIUtility.systemCopyBuffer = $"{worldX:F1}, {worldZ:F1}";
+                status = $"Position x = {worldX:F1} (east), y = {worldZ:F1} (north) metres from the map centre; copied to the clipboard. Use it as a point of an override in the settings.";
+            }
+
             EditorGUILayout.LabelField(hoverText, EditorStyles.miniLabel);
         }
 
@@ -190,6 +228,54 @@ namespace HighProject.MapBaker
             EditorGUIUtility.PingObject(asset);
         }
 
+        // Bakes the map once normally and 8 times at the same time on worker threads, then compares the checksums.
+        void StartDeterminismCheck()
+        {
+            string osmPath = settings.OsmPath;
+            if (string.IsNullOrEmpty(osmPath) || !osmPath.EndsWith(".osm") || !File.Exists(osmPath))
+            {
+                status = "The settings have no valid .osm file assigned.";
+                return;
+            }
+
+            // The settings asset is a Unity object and may only be read on the main thread, so every bake gets its
+            // own options object created here; the worker threads only see plain data.
+            const int parallelRuns = 8;
+            GridBuildOptions[] options = Enumerable.Range(0, parallelRuns + 1).Select(_ => settings.ToBuildOptions()).ToArray();
+            int next = -1;
+            Func<GridBuildOptions> createOptions = () => options[Interlocked.Increment(ref next)];
+
+            status = $"Checking determinism: 1 normal bake and {parallelRuns} at the same time...";
+            determinismCheck = Task.Run(() => GridDeterminismCheck.Run(OsmReader.ReadFile(osmPath), createOptions, parallelRuns));
+        }
+
+        void FinishDeterminismCheck()
+        {
+            Task<DeterminismResult> finished = determinismCheck;
+            determinismCheck = null;
+
+            if (finished.IsFaulted)
+            {
+                Exception error = finished.Exception.GetBaseException();
+                status = $"Determinism check failed: {error.Message}";
+                Debug.LogException(error);
+            }
+            else
+            {
+                status = finished.Result.ToString();
+                if (finished.Result.AllIdentical)
+                {
+                    Debug.Log(status);
+                }
+                else
+                {
+                    Debug.LogError(status);
+                }
+            }
+
+            Repaint();
+        }
+
         void StartBake()
         {
             string osmPath = settings.OsmPath;
@@ -216,6 +302,11 @@ namespace HighProject.MapBaker
         // Runs every editor update: forwards progress and picks up the finished job on the main thread.
         void Poll()
         {
+            if (determinismCheck != null && determinismCheck.IsCompleted)
+            {
+                FinishDeterminismCheck();
+            }
+
             if (job == null)
             {
                 return;
