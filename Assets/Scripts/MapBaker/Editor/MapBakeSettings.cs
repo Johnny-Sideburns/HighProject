@@ -18,6 +18,14 @@ namespace HighProject.MapBaker
             [Range(1, 254)] public int cost;
         }
 
+        [Serializable]
+        class OverrideArea
+        {
+            public string name = "Override";
+            public OverrideKind kind = OverrideKind.Block;
+            public List<Vector2> points = new List<Vector2>();
+        }
+
         [Header("Source")]
         [Tooltip("The OpenStreetMap XML file (.osm) to bake.")]
         [SerializeField] DefaultAsset osmFile = null;
@@ -47,6 +55,12 @@ namespace HighProject.MapBaker
         [Tooltip("0 = agents may only start in the largest connected walkable area. Otherwise every area with at least this many cells counts.")]
         [SerializeField, Min(0)] int minSpawnComponentCells = 0;
 
+        [Header("Manual overrides")]
+        [Tooltip("Hand-made corrections on top of the OpenStreetMap data. Each one is a polygon (at least 3 points). " +
+                 "Points are in metres: x = east, y = north, measured from the centre of the map. Click on the picture in the Map Bake window to see the position of a spot. " +
+                 "Block = impassable, Open = force walkable (a door in a fence), Exclude / Include From Spawn = where agents may start. Open wins over Block.")]
+        [SerializeField] List<OverrideArea> overrides = new List<OverrideArea>();
+
         [Header("Movement cost per ground type (lower = preferred)")]
         [SerializeField] SurfaceCost[] surfaceCosts = new SurfaceCost[0];
 
@@ -74,6 +88,18 @@ namespace HighProject.MapBaker
             options.Blockers.RailBandWidthMeters = railBandWidth;
             options.Blockers.GateOpeningRadiusMeters = gateOpeningRadius;
             options.Spawn.MinComponentCells = minSpawnComponentCells;
+
+            foreach (OverrideArea area in overrides)
+            {
+                var points = new List<Point2d>(area.points.Count);
+                foreach (Vector2 point in area.points)
+                {
+                    points.Add(new Point2d(point.x, point.y));
+                }
+
+                // A bad override is not an error here: it is recorded and shown as a warning after the bake.
+                options.Overrides.TryAdd(area.name, area.kind, points);
+            }
 
             foreach (SurfaceCost entry in surfaceCosts)
             {
