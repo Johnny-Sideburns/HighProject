@@ -53,6 +53,7 @@ namespace HighProject.MapCore
             CheckBuildings(result, messages);
             CheckEntrances(result, messages);
             CheckGrid(result, options, messages);
+            CheckOverrides(result, options, messages);
             return messages;
         }
 
@@ -149,6 +150,20 @@ namespace HighProject.MapCore
                 messages.Add(new ValidationMessage(ValidationSeverity.Warning, Format(
                     "The grid has {0} cells. That needs a lot of memory and slows every step; use a larger cell size or a smaller area.",
                     result.Grid.CellCount)));
+            }
+        }
+
+        static void CheckOverrides(GridBuildResult result, GridBuildOptions options, List<ValidationMessage> messages)
+        {
+            foreach (string rejected in options.Overrides.Rejected)
+            {
+                messages.Add(new ValidationMessage(ValidationSeverity.Warning, $"Override ignored: {rejected}"));
+            }
+
+            foreach (OverrideResult applied in result.Overrides.Results.Where(r => r.CellsChanged == 0))
+            {
+                messages.Add(new ValidationMessage(ValidationSeverity.Warning, Format(
+                    "Override '{0}' ({1}) changed nothing: it may lie outside the map, or the cells already were in that state.", applied.Name, applied.Kind)));
             }
         }
 

@@ -16,6 +16,9 @@ namespace HighProject.MapCore
         public SurfaceOptions Surface { get; } = new SurfaceOptions();
         public BlockerOptions Blockers { get; } = new BlockerOptions();
         public SpawnMaskOptions Spawn { get; } = new SpawnMaskOptions();
+
+        // Hand-made corrections applied on top of the OSM data.
+        public GridOverrides Overrides { get; } = new GridOverrides();
     }
 
     public sealed class GridBuildResult
@@ -29,6 +32,9 @@ namespace HighProject.MapCore
         public BlockerReport Blockers { get; set; }
         public ConnectivityResult Connectivity { get; set; }
         public int SpawnableCells { get; set; }
+
+        // What each manual override changed.
+        public OverrideReport Overrides { get; } = new OverrideReport();
 
         // Plain-words findings about the bake, see GridValidator.
         public List<ValidationMessage> Validation { get; } = new List<ValidationMessage>();
@@ -50,6 +56,7 @@ namespace HighProject.MapCore
                 "Entrances: {0} matched to buildings, {1} not on any building", Entrances.Entrances.Count, Entrances.UnmatchedNodeIds.Count));
             text.AppendLine(Surfaces.ToString().TrimEnd());
             text.AppendLine(Blockers.ToString().TrimEnd());
+            text.AppendLine(Overrides.ToString());
             text.AppendLine(Connectivity.Describe(Grid, 5).TrimEnd());
             text.AppendLine(string.Format(CultureInfo.InvariantCulture,
                 "Spawnable cells: {0} of {1} walkable", SpawnableCells, Connectivity.WalkableCells));
@@ -75,7 +82,7 @@ namespace HighProject.MapCore
     // Free of Unity types, so it can run on a worker thread. Progress and cancellation are checked between stages.
     public static class GridBuilder
     {
-        const int StageCount = 9;
+        const int StageCount = 10;
 
         public static GridBuildResult Build(
             OsmDocument document,
@@ -121,11 +128,18 @@ namespace HighProject.MapCore
             Run("blockers", () => result.Blockers = BlockerPainter.Paint(
                 document, projection, options.Classification, options.Surface, options.Blockers, result.Buildings.Footprints, result.Grid));
 
+            Run("overrides", () => OverridePainter.ApplyTerrain(options.Overrides, result.Grid, result.Overrides));
+
             Run("costs", () => result.Grid.ApplySurfaceCosts(options.Surface.CostBySurface));
 
             Run("connectivity", () => result.Connectivity = ConnectivityAnalyzer.Analyze(result.Grid));
 
-            Run("spawn", () => result.SpawnableCells = SpawnMask.Apply(result.Grid, result.Connectivity, options.Spawn));
+            Run("spawn", () =>
+            {
+                SpawnMask.Apply(result.Grid, result.Connectivity, options.Spawn);
+                OverridePainter.ApplySpawn(options.Overrides, result.Grid, result.Overrides);
+                result.SpawnableCells = result.Grid.CountFlag(CellFlags.Spawnable);
+            });
 
             Run("validate", () => result.Validation.AddRange(GridValidator.Validate(result, options)));
 
