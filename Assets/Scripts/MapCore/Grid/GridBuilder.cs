@@ -30,6 +30,9 @@ namespace HighProject.MapCore
         public ConnectivityResult Connectivity { get; set; }
         public int SpawnableCells { get; set; }
 
+        // Plain-words findings about the bake, see GridValidator.
+        public List<ValidationMessage> Validation { get; } = new List<ValidationMessage>();
+
         // Wall-clock time per stage, in the order the stages ran.
         public List<KeyValuePair<string, long>> StageMilliseconds { get; } = new List<KeyValuePair<string, long>>();
 
@@ -51,6 +54,12 @@ namespace HighProject.MapCore
             text.AppendLine(string.Format(CultureInfo.InvariantCulture,
                 "Spawnable cells: {0} of {1} walkable", SpawnableCells, Connectivity.WalkableCells));
 
+            text.AppendLine(Validation.Count == 0 ? "Validation: nothing to report" : "Validation:");
+            foreach (ValidationMessage message in Validation)
+            {
+                text.AppendLine("  " + message);
+            }
+
             var timing = new StringBuilder("Stage times (ms):");
             foreach (KeyValuePair<string, long> stage in StageMilliseconds)
             {
@@ -66,7 +75,7 @@ namespace HighProject.MapCore
     // Free of Unity types, so it can run on a worker thread. Progress and cancellation are checked between stages.
     public static class GridBuilder
     {
-        const int StageCount = 8;
+        const int StageCount = 9;
 
         public static GridBuildResult Build(
             OsmDocument document,
@@ -117,6 +126,8 @@ namespace HighProject.MapCore
             Run("connectivity", () => result.Connectivity = ConnectivityAnalyzer.Analyze(result.Grid));
 
             Run("spawn", () => result.SpawnableCells = SpawnMask.Apply(result.Grid, result.Connectivity, options.Spawn));
+
+            Run("validate", () => result.Validation.AddRange(GridValidator.Validate(result, options)));
 
             cancellationToken.ThrowIfCancellationRequested();
             progress?.Report(1f);
