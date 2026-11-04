@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     public readonly struct OsmBounds

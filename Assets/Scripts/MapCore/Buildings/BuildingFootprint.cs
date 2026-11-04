@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     // One solid building outline. A relation with several outer rings produces several footprints with the same OsmId.

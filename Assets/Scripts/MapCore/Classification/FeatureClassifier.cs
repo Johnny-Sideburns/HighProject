@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     // Decides what an OSM element means for the map, from its tags only.

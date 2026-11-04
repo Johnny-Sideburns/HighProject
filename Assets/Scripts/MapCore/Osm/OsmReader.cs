@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Xml;
 
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     // Streaming reader for OSM XML (the format of the Overpass API and openstreetmap.org exports).

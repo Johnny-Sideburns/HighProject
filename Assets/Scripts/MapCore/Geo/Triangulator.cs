@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+// The ear-clipping triangulation is my own implementation from an earlier project, adapted for this one.
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     // Cuts a polygon with holes into triangles (ear clipping). Holes are first joined to the outline by thin bridges,

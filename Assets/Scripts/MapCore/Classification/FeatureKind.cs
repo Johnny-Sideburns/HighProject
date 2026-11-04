@@ -1,5 +1,6 @@
 using System;
 
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     // What an OSM element means for the simulation map. One element can have several kinds,

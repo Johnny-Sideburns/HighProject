@@ -1,5 +1,6 @@
 using System;
 
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     // A point in the local map plane, in metres: X = east, Z = north (the x and z axes of the Unity scene).

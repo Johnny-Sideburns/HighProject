@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 
+// The connectivity analysis is based on my own earlier project with a navigation grid; adapted here for the map grid.
 namespace HighProject.MapCore
 {
     public sealed class ComponentInfo

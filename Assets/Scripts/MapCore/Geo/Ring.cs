@@ -1,5 +1,6 @@
 using System;
 
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     // A closed polygon outline in local metres. The last point is NOT repeated: [a, b, c] means a-b-c-a.

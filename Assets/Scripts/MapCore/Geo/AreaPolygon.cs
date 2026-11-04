@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     // An area with an outer outline (counter-clockwise) and holes (clockwise), e.g. a building with a courtyard.

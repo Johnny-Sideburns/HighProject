@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 
+// Based on my own earlier project that worked with OpenStreetMap (OSM) data; adapted here to feed the grid and the ECS map blob.
 namespace HighProject.MapCore
 {
     // Collects the solid building footprints (ways and multipolygon relations) from an OSM document.
