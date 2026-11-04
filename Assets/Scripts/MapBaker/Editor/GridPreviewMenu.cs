@@ -3,6 +3,7 @@ using HighProject.MapCore;
 using UnityEditor;
 using UnityEngine;
 
+// Editor tooling like this follows what I built in earlier projects; adapted here for the map baker.
 namespace HighProject.MapBaker
 {
     // Quick check without settings: builds the grid for the selected .osm file (or the Norreport extract) in the

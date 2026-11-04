@@ -4,6 +4,7 @@ using HighProject.MapCore;
 using UnityEditor;
 using Debug = UnityEngine.Debug;
 
+// Editor tooling like this follows what I built in earlier projects; adapted here for the map baker.
 namespace HighProject.MapBaker
 {
     // Milestones 1a-1b: prints the statistics, building footprints and entrances of an OSM file to the Console.

@@ -2,6 +2,7 @@ using System.IO;
 using HighProject.MapCore;
 using UnityEngine;
 
+// Editor tooling like this follows what I built in earlier projects; adapted here for the map baker.
 namespace HighProject.MapBaker
 {
     // Turns a grid into a Unity texture or a PNG file.

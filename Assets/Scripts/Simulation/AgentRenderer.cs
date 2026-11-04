@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Rendering;
 
+// The instanced drawing is a small part taken from an earlier project of mine, adapted here to read ECS data.
 namespace HighProject.Simulation
 {
     // Draws the agents: one GPU-instanced mesh per kind (humans, infected, zombies), straight from the simulation

@@ -2,6 +2,7 @@ using HighProject.Map;
 using UnityEditor;
 using UnityEngine;
 
+// Editor tooling like this follows what I built in earlier projects; adapted here for the map baker.
 namespace HighProject.MapBaker
 {
     // Puts the baked map into the open scene with one click.

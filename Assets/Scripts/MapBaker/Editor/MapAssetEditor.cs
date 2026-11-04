@@ -2,6 +2,7 @@ using HighProject.Map;
 using UnityEditor;
 using UnityEngine;
 
+// Editor tooling like this follows what I built in earlier projects; adapted here for the map baker.
 namespace HighProject.MapBaker
 {
     // Inspector for a baked map: a short summary and no data. The grid layers are hidden on purpose (see MapAsset):

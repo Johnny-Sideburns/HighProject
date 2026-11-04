@@ -8,6 +8,7 @@ using HighProject.MapCore;
 using UnityEditor;
 using UnityEngine;
 
+// Editor tooling like this follows what I built in earlier projects; adapted here for the map baker.
 namespace HighProject.MapBaker
 {
     // Window to bake an OSM file into the walkability grid in the background (the editor stays usable),
