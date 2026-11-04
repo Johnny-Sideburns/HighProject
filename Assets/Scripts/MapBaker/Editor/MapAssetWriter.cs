@@ -84,7 +84,7 @@ namespace HighProject.MapBaker
             var texture = new Texture2D(grid.Width, grid.Height, TextureFormat.RGB24, true)
             {
                 name = "Ground",
-                filterMode = FilterMode.Bilinear,
+                filterMode = FilterMode.Point,
                 wrapMode = TextureWrapMode.Clamp,
                 anisoLevel = 4
             };
