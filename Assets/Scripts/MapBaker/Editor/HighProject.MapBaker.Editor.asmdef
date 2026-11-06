@@ -1,0 +1,19 @@
+{
+    "name": "HighProject.MapBaker.Editor",
+    "rootNamespace": "HighProject.MapBaker",
+    "references": [
+        "HighProject.MapCore",
+        "HighProject.Map"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
